@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Think with Google Brasil: Radar de Conteúdo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Calm Harmony (Light Slate, Dark Slate Text, Accent Blue) -->
+    <!-- Application Structure Plan: A dashboard layout was chosen to provide a high-level overview for senior leaders while allowing for deep dives for operational teams. The structure includes summary stats, interactive filters, a visual chart for content mix, and a card-based grid. This non-linear structure empowers users to find relevant information quickly. The core interaction is filtering the content cards and viewing actionable details in a modal, making the content immediately useful. -->
+    <!-- Visualization & Content Choices: Report Info: Content Mix (Original vs. Translation) -> Goal: Inform/Compare -> Viz: Donut Chart -> Interaction: Hover for tooltips -> Justification: Provides a quick visual summary of content investment. Library: Chart.js. | Report Info: Full Content Pipeline -> Goal: Organize/Explore -> Presentation: Interactive Cards + Detail Modal -> Interaction: Filter by category, click for details, copy text -> Justification: Allows users to self-serve and find content relevant to their specific needs, turning the report into an actionable tool. Method: HTML/Tailwind/JS. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .modal-open {
+            overflow: hidden;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 280px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 280px;
+            max-height: 280px;
+        }
+        .modal-content {
+            max-height: 85vh;
+        }
+        .line-clamp-2 {
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+        }
+        .card-hover-effect {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card-hover-effect:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.07), 0 4px 6px -4px rgb(0 0 0 / 0.07);
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div id="app" class="container mx-auto p-4 sm:p-6 md:p-8">
+
+        <header class="mb-10 pb-6 border-b border-slate-200 md:flex md:items-center md:justify-between">
+            <div>
+                <h1 class="text-3xl md:text-4xl font-bold text-slate-900">Think with Google Brasil: Radar de Conteúdo</h1>
+                <p id="month-display" class="text-lg text-slate-600 mt-2"></p>
+            </div>
+            <div class="mt-4 md:mt-0">
+                <label for="month-selector" class="sr-only">Selecione o Mês</label>
+                <select id="month-selector" class="w-full md:w-auto p-2.5 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-semibold bg-white">
+                </select>
+            </div>
+        </header>
+
+        <section class="mb-10 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="p-6 bg-white rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-xl font-bold text-slate-900 mb-4">Artigo em Destaque do Mês</h2>
+                <div class="space-y-4">
+                    <div class="p-5 bg-slate-50 rounded-lg">
+                        <h3 id="strategic-theme" class="text-lg font-semibold text-blue-600"></h3>
+                    </div>
+                    <div class="p-5 bg-slate-50 rounded-lg">
+                        <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">🎯 Objetivo de Negócio</h3>
+                        <p id="business-goal" class="text-base font-medium text-slate-700"></p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col">
+                <h2 class="text-xl font-bold text-slate-900 mb-4">Métricas Principais da Plataforma</h2>
+                <div class="grid grid-cols-2 gap-4 flex-grow">
+                    <div class="p-5 bg-slate-50 rounded-lg flex flex-col items-center justify-center text-center">
+                        <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Inscritos na Newsletter</h3>
+                        <p class="text-4xl font-bold text-slate-900 mt-2">175K+</p>
+                    </div>
+                     <div class="p-5 bg-slate-50 rounded-lg flex flex-col items-center justify-center text-center">
+                        <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Leitores Mensais</h3>
+                        <p class="text-4xl font-bold text-slate-900 mt-2">152K+</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <main class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <aside class="lg:col-span-3">
+                <div class="sticky top-8">
+                    <div class="p-6 bg-white rounded-xl shadow-sm border border-slate-200 mb-6">
+                        <h3 class="text-lg font-bold text-slate-900 mb-4">Mix de Conteúdo</h3>
+                        <div class="chart-container">
+                            <canvas id="contentMixChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <div class="lg:col-span-9">
+                <div class="p-4 bg-white rounded-xl shadow-sm border border-slate-200 mb-6 flex flex-wrap items-center gap-4">
+                    <h3 class="text-lg font-bold text-slate-900 mr-4">Filtros</h3>
+                    <div class="flex-grow grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label for="filter-type" class="sr-only">Tipo</label>
+                            <select id="filter-type" class="w-full p-2 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="all">Todos os Tipos</option>
+                                <option value="Original">Original</option>
+                                <option value="Tradução">Tradução</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="filter-format" class="sr-only">Formato</label>
+                            <select id="filter-format" class="w-full p-2 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="all">Todos os Formatos</option>
+                            </select>
+                        </div>
+                         <div>
+                            <label for="filter-status" class="sr-only">Status</label>
+                            <select id="filter-status" class="w-full p-2 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="all">Todos os Status</option>
+                                <option value="Confirmado">Confirmado</option>
+                                <option value="Tentativa">Tentativa</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="content-pipeline" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                </div>
+            </div>
+        </main>
+
+    </div>
+
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl transform transition-all modal-content overflow-y-auto">
+            <div class="sticky top-0 bg-white p-6 border-b border-slate-200 flex justify-between items-center z-10">
+                <h2 id="modal-title" class="text-xl font-bold text-slate-900"></h2>
+                <button id="modal-close" class="text-slate-500 hover:text-slate-800 text-3xl leading-none">&times;</button>
+            </div>
+            <div id="modal-body" class="p-6 space-y-6">
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            let allContentData = [];
+            let allExecutiveSummaries = {};
+            let chartInstance = null;
+            
+            const pipelineContainer = document.querySelector('#content-pipeline');
+            const modal = document.getElementById('modal');
+            const modalCloseBtn = document.getElementById('modal-close');
+            const monthSelector = document.getElementById('month-selector');
+            const filterType = document.getElementById('filter-type');
+            const filterFormat = document.getElementById('filter-format');
+            const filterStatus = document.getElementById('filter-status');
+
+            function populateFilters(contentData) {
+                const formats = [...new Set(contentData.map(item => item.format))].filter(Boolean);
+                filterFormat.innerHTML = '<option value="all">Todos os Formatos</option>';
+                formats.sort().forEach(format => {
+                    const option = document.createElement('option');
+                    option.value = format;
+                    option.textContent = format;
+                    filterFormat.appendChild(option);
+                });
+            }
+
+            function getStatusBadge(status) {
+                return status === 'Confirmado' ? `<span class="inline-block bg-green-100 text-green-800 text-xs font-semibold px-2 py-0.5 rounded-full">Confirmado</span>` : `<span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-semibold px-2 py-0.5 rounded-full">Tentativa</span>`;
+            }
+
+            function getTypeBadge(type) {
+                return type === 'Original' ? `<span class="inline-block bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-0.5 rounded-full">Original</span>` : `<span class="inline-block bg-slate-100 text-slate-800 text-xs font-semibold px-2 py-0.5 rounded-full">Tradução</span>`;
+            }
+            
+            function formatDate(dateObj) {
+                if (!dateObj || !(dateObj instanceof Date)) return 'Sem Data';
+                return dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '');
+            }
+
+            function renderPipeline(data) {
+                pipelineContainer.innerHTML = '';
+                if (data.length === 0) {
+                    pipelineContainer.innerHTML = `<p class="md:col-span-2 text-center text-slate-500 py-10">Nenhum conteúdo corresponde aos filtros atuais.</p>`;
+                    return;
+                }
+                data.sort((a, b) => a.publishDate - b.publishDate).forEach((item) => {
+                    const isTBP = item.synopsis === 'TBP.';
+                    
+                    const cardLink = document.createElement('a');
+                    cardLink.href = isTBP ? '#' : item.link;
+                    if(!isTBP) cardLink.target = '_blank';
+                    cardLink.rel = 'noopener noreferrer';
+                    cardLink.className = `bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col card-hover-effect ${isTBP ? 'opacity-70 cursor-default' : ''}`;
+
+                    cardLink.innerHTML = `
+                        <div class="flex-grow">
+                            <div class="flex justify-between items-start mb-3">
+                                <p class="text-sm text-slate-500 font-bold bg-slate-100 px-2 py-1 rounded-md">${formatDate(item.publishDate)}</p>
+                                ${getStatusBadge(item.status)}
+                            </div>
+                            <h3 class="text-base font-bold text-slate-900 mb-2">${item.title}</h3>
+                            <p class="text-sm text-slate-600 mb-4 line-clamp-2">${isTBP ? 'Detalhes em breve. Este conteúdo está em fase de planejamento.' : item.synopsis}</p>
+                        </div>
+                        <div class="mt-auto pt-4 border-t border-slate-100 flex justify-between items-center">
+                             <div class="flex items-center gap-2">
+                                ${getTypeBadge(item.type)}
+                                <span class="text-xs font-medium text-slate-500">${item.format}</span>
+                            </div>
+                            <button class="ver-detalhes text-sm font-bold text-blue-600 hover:underline">Ver detalhes +</button>
+                        </div>
+                    `;
+                    
+                    const detailsButton = cardLink.querySelector('.ver-detalhes');
+                    detailsButton.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        openModal(item);
+                    });
+
+                    if(isTBP) {
+                         cardLink.addEventListener('click', (e) => e.preventDefault());
+                    }
+
+                    pipelineContainer.appendChild(cardLink);
+                });
+            }
+
+            function openModal(item) {
+                document.getElementById('modal-title').textContent = item.title;
+                const modalBody = document.getElementById('modal-body');
+                const modalContent = modal.querySelector('.modal-content');
+
+                const displayOrTBP = (text) => text === 'TBP' || text === 'TBP.' || text === 'TBC' ? '<span class="text-slate-500 italic">A ser definido.</span>' : text;
+                const isTBP = item.starter === 'TBP' || item.starter === 'TBP.' || item.starter === 'TBC';
+
+                modalBody.innerHTML = `
+                    <div><h4 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Sinopse</h4><p class="text-slate-700">${displayOrTBP(item.synopsis)}</p></div>
+                    <div class="p-5 bg-slate-100 rounded-lg">
+                        <div class="flex justify-between items-center mb-2">
+                            <h4 class="text-sm font-bold text-slate-600 uppercase tracking-wider">Texto para o LinkedIn</h4>
+                            <button id="copy-btn" class="px-3 py-1 bg-blue-500 text-white text-xs font-semibold rounded-md hover:bg-blue-600 transition-colors ${isTBP ? 'hidden' : ''}">Copiar</button>
+                        </div>
+                        <p id="starter-text" class="text-slate-700">"${displayOrTBP(item.starter)}"</p>
+                    </div>`;
+                
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                document.body.classList.add('modal-open');
+                modalContent.scrollTop = 0;
+                
+                if (!isTBP) {
+                    document.getElementById('copy-btn').addEventListener('click', (e) => {
+                        const textToCopy = document.getElementById('starter-text').textContent;
+                        const textArea = document.createElement('textarea');
+                        textArea.value = textToCopy;
+                        document.body.appendChild(textArea);
+                        textArea.select();
+                        try {
+                            document.execCommand('copy');
+                            e.target.textContent = 'Copiado!';
+                            setTimeout(() => { e.target.textContent = 'Copiar'; }, 2000);
+                        } catch (err) { console.error('Falha ao copiar texto: ', err); }
+                        document.body.removeChild(textArea);
+                    });
+                }
+            }
+
+            function closeModal() {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                document.body.classList.remove('modal-open');
+            }
+
+            function applyFilters() {
+                const selectedMonth = monthSelector.value;
+                let filteredData = allContentData.filter(item => {
+                    if (!item.publishDate) return false;
+                    const itemMonthKey = `${item.publishDate.getUTCFullYear()}-${item.publishDate.getUTCMonth()}`;
+                    return itemMonthKey === selectedMonth;
+                });
+
+                if (filterType.value !== 'all') filteredData = filteredData.filter(item => item.type === filterType.value);
+                if (filterFormat.value !== 'all') filteredData = filteredData.filter(item => item.format === filterFormat.value);
+                if (filterStatus.value !== 'all') filteredData = filteredData.filter(item => item.status === filterStatus.value);
+                
+                renderPipeline(filteredData);
+            }
+
+            function initChart(contentData) {
+                const ctx = document.getElementById('contentMixChart').getContext('2d');
+                if (chartInstance) chartInstance.destroy();
+                
+                const typeCounts = contentData.reduce((acc, item) => {
+                    if (item.type) acc[item.type] = (acc[item.type] || 0) + 1;
+                    return acc;
+                }, {});
+
+                chartInstance = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(typeCounts),
+                        datasets: [{ data: Object.values(typeCounts), backgroundColor: ['#3b82f6', '#e2e8f0'], borderColor: ['#f8fafc', '#f8fafc'], borderWidth: 4 }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom' },
+                            tooltip: { callbacks: { label: (context) => `${context.label || ''}: ${context.parsed || ''}` } }
+                        },
+                        cutout: '60%'
+                    }
+                });
+            }
+
+            function renderForMonth(monthKey) {
+                const monthData = allContentData.filter(item => {
+                    if (!item.publishDate) return false;
+                    const itemMonthKey = `${item.publishDate.getUTCFullYear()}-${item.publishDate.getUTCMonth()}`;
+                    return itemMonthKey === monthKey;
+                });
+
+                if (monthData.length === 0) {
+                    pipelineContainer.innerHTML = `<p class="md:col-span-2 text-center text-slate-500 py-10">Nenhum conteúdo disponível para este mês.</p>`;
+                    document.getElementById('strategic-theme').textContent = 'N/A';
+                    document.getElementById('business-goal').textContent = 'N/A';
+                    const date = new Date(Date.UTC(monthKey.split('-')[0], monthKey.split('-')[1]));
+                    document.getElementById('month-display').textContent = `Para ${date.toLocaleString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })}`;
+
+                } else {
+                    const summary = allExecutiveSummaries[monthKey] || { theme: 'N/A', goal: 'N/A' };
+                    const monthDate = monthData[0].publishDate;
+                    document.getElementById('month-display').textContent = `Para ${monthDate.toLocaleString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })}`;
+                    document.getElementById('strategic-theme').textContent = summary.theme;
+                    document.getElementById('business-goal').textContent = summary.goal;
+
+                    populateFilters(monthData);
+                    initChart(monthData);
+                    applyFilters();
+                }
+            }
+
+            function populateMonthSelector() {
+                const monthKeys = [...new Set(allContentData.map(item => {
+                    if (!item.publishDate) return null;
+                    return `${item.publishDate.getUTCFullYear()}-${item.publishDate.getUTCMonth()}`;
+                }))].filter(Boolean);
+
+                monthKeys.sort((a, b) => new Date(a.split('-')[0], a.split('-')[1]) - new Date(b.split('-')[0], b.split('-')[1]));
+
+                monthSelector.innerHTML = '';
+                monthKeys.forEach(key => {
+                    const [year, month] = key.split('-');
+                    const date = new Date(Date.UTC(year, month));
+                    const option = document.createElement('option');
+                    option.value = key;
+                    option.textContent = date.toLocaleString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+                    monthSelector.appendChild(option);
+                });
+                
+                if (monthKeys.length > 0) {
+                    monthSelector.value = monthKeys[monthKeys.length -1];
+                }
+            }
+
+            function postDataLoad() {
+                if (allContentData.length === 0) {
+                    document.getElementById('app').innerHTML = `<div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-xl relative" role="alert"><strong class="font-bold">Sem dados!</strong> <span class="block sm:inline">Nenhum dado de conteúdo foi encontrado.</span></div>`;
+                    return;
+                }
+                populateMonthSelector();
+                renderForMonth(monthSelector.value);
+
+                monthSelector.addEventListener('change', () => renderForMonth(monthSelector.value));
+                filterType.addEventListener('change', applyFilters);
+                filterFormat.addEventListener('change', applyFilters);
+                filterStatus.addEventListener('change', applyFilters);
+                modalCloseBtn.addEventListener('click', closeModal);
+                modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+                document.addEventListener('keydown', (e) => { if (e.key === "Escape") closeModal(); });
+            }
+            
+            function loadData() {
+                // ===============================================================================================
+                // ATUALIZAÇÃO MENSAL: COLE SEUS DADOS AQUI
+                // Copie os dados da sua planilha e cole-os dentro dos colchetes [] e chaves {} abaixo.
+                // ===============================================================================================
+
+                allContentData = [
+                    // DADOS DE SETEMBRO DE 2025
+                    { publishDate: new Date("2025-09-01T00:00:00Z"), title: "20 anos de YouTube no Brasil: formatos, hábitos e oportunidades", link: "https://docs.google.com/document/d/13Fxadpb3PrxsEPEJw73pzTz6OYCbE1_8jDlJ9jwNobM/edit?usp=sharing", status: "Confirmado", channels: ["Site"], format: "Artigo", type: "Original", synopsis: "YouTube no Brasil: 20 anos de transformação! De plataforma a rotina diária, impulsionando novos hábitos de consumo em TV, podcasts e Shorts.", starter: "YouTube: 20 anos no Brasil! Descubra tendências, formatos e como os brasileiros interagem com a plataforma. Acesse o relatório e otimize suas estratégias!", },
+                    { publishDate: new Date("2025-09-04T00:00:00Z"), title: "O grande salto criativo: o poder transformador da IA além da produtividade", link: "https://docs.google.com/document/d/1ohi5XfHZifKnUs75zMkjqyUhYtyp4-egBwQOH9k5KVM/edit?usp=sharing", status: "Confirmado", channels: ["YouTube"], format: "Vídeo - AI Conversation", type: "Original", synopsis: "A IA impulsiona a criatividade, democratizando ferramentas e transformando o futuro do trabalho criativo, aproximando a ideia da execução.", starter: "Desvende o poder da IA na criatividade! ✨ Assista a Andy Berndt e Ramiro Sanchez explorarem como a IA acelera suas ideias. Saiba mais! #AIConversation", },
+                    { publishDate: new Date("2025-09-08T00:00:00Z"), title: "Parallax Exchange Clubhouse", link: "https://docs.google.com/document/d/198IBnXU-3gNqcICVvDbEJMtmmIbQ7XIhJ813ixOvgnc/edit?tab=t.0", status: "Confirmado", channels: ["Site"], format: "Artigo", type: "Original", synopsis: "O marketing precisa de mensuração estratégica e integrada, combinando dados e colaboração para superar silos e otimizar resultados.", starter: "Analise o marketing de outro ângulo! Superar silos e ter um mindset estratégico com dados e frameworks é o futuro. Saiba mais! #Marketing #Mensuração", },
+
+                    // DADOS DE OUTUBRO DE 2025
+                    { publishDate: new Date("2025-10-08T00:00:00Z"), title: "Brandcast Brasil: Por que só o YouTube reúne fãs apaixonados e traz resultados para marcas", link: "https://business.google.com/br/think/search-and-video/youtube-brandcast-2025/", status: "Confirmado", channels: ["Site"], format: "Artigo", type: "Original", synopsis: "YouTube celebra 20 anos como epicentro da cultura digital no Brasil, transformando consumo de vídeo, impulsionando criadores e conectando comunidades.", starter: "YouTube: 20 anos transformando cultura e conexões! ✨ Sua marca pronta para os próximos capítulos? Conecte-se e inspire-se!", },
+                    { publishDate: new Date("2025-10-10T00:00:00Z"), title: "Do planejamento à execução: 4 passos para usar IA no dia a dia do marketing", link: "https://business.google.com/br/think/ai-excellence/uso-marketing-ia/", status: "Confirmado", channels: ["Site"], format: "Artigo", type: "Tradução", synopsis: "O texto explora como a IA otimiza o marketing, desde o briefing da campanha até a criação de conteúdo e mensuração, com supervisão humana estratégica.", starter: "IA no marketing: do planejamento à execução em 4 passos! Descubra como otimizar suas campanhas e potencializar a criatividade. #MarketingIA #Inovação", },
+                    { publishDate: new Date("2025-10-13T00:00:00Z"), title: "Efeito Paralaxe: por que o marketing precisa de uma mensuração integrada", link: "https://business.google.com/br/think/measurement/parallax-mensuracao-marketing/", status: "Confirmado", channels: ["Site"], format: "Artigo", type: "Original", synopsis: "O marketing precisa de mensuração integrada. O efeito paralaxe no marketing evita silos, otimiza investimentos e impulsiona decisões estratégicas com dados e IA.", starter: "Mensuração integrada é chave! Líderes que conectam marketing, tecnologia e finanças transformam dados em decisões. Saiba mais! #Marketing #Liderança", },
+                    { publishDate: new Date("2025-10-14T00:00:00Z"), title: "Além da alta temporada: estratégias para alcançar o viajante em todos os momentos", link: "https://business.google.com/br/think/consumer-insights/sazonalidade-viagens-brasil/", status: "Confirmado", channels: ["Site"], format: "Artigo", type: "Original", synopsis: "O artigo 'Além da alta temporada' explora como o interesse por viagens é constante no Brasil e as estratégias para marcas se conectarem com viajantes o ano todo.", starter: "✈️🎒 Brasileiros viajam o ano todo! Descubra os 4 perfis de viajantes e crie experiências que engajam. Leia mais no Think with Google!", },
+                    { publishDate: new Date("2025-10-15T00:00:00Z"), title: "Do clique à conversão: o papel da IA na nova Black Friday", link: "https://www.thinkwithgoogle.com/intl/pt-br/tendencias-de-consumo/jornada-do-consumidor/cases-black-friday-2025/", status: "Confirmado", channels: ["Site"], format: "Artigo", type: "Original", synopsis: "A IA impulsiona o crescimento na Black Friday, otimizando criação, mídia e experiência omnicanal para marcas.", starter: "Black Friday 2025: IA é chave para o sucesso! Crie campanhas ágeis, mensure melhor e impulsione seus resultados. #IABlackFriday #MarketingDigital", },
+                    { publishDate: new Date("2025-10-16T00:00:00Z"), title: "Key Takeaways Brandcast", link: "https://www.linkedin.com/posts/think-with-google_destaques-brandcast-2025-activity-7384673570418933761-68yh?utm_source=share&utm_medium=member_desktop&rcm=ACoAAAu9hbQBedWQxMjdV_dnN6ePtUIotbIB2GU", status: "Confirmado", channels: ["LinkedIn"], format: "Infográfico", type: "Original", synopsis: "O YouTube celebra 20 anos como epicentro cultural, transformando o consumo de vídeo, conectando fãs e criadores, e impulsionando marcas. É único!", starter: "Descubra por que o YouTube, em seus 20 anos, continua único e essencial para a cultura, fãs e marcas! #Brandcast2025 #YouTube #ThinkwithGoogle", },
+                    { publishDate: new Date("2025-10-17T00:00:00Z"), title: "Mercado Livre e Nano Banana", link: "https://docs.google.com/document/d/1jGhFnGLAJe8THCGk6UP_YqQjnBxHrqiX1M5ivD5aYw4/edit?tab=t.0", status: "Confirmado", channels: ["LinkedIn"], format: "Case de Sucesso", type: "Original", synopsis: "YouTube completa 20 anos como epicentro da cultura digital no Brasil, impulsionando a transformação do consumo de vídeo, a criação de conteúdo e a jornada do consumidor.", starter: "IA do Google + Mercado Livre = imagens incríveis em segundos! 🚀 Vendedores geram 5x mais imagens de alta qualidade. Prepare-se para essa transformação!", },
+                    { publishDate: new Date("2025-10-20T00:00:00Z"), title: "De reality show a sucesso no YouTube: os bastidores do MasterChef Creators", link: "https://www.thinkwithgoogle.com/intl/pt-br/estrategias-de-marketing/video/masterchef-creators-brasil/", status: "Confirmado", channels: ["Site"], format: "Case de Sucesso", type: "Original", synopsis: "O MasterChef Creators no YouTube é um case de sucesso ao unir formato premium, influenciadores e marcas, gerando audiência e relevância cultural no digital.", starter: "MasterChef Creators: o sucesso de público e marca! 🚀 Descubra como essa parceria entre Endemol Shine Brasil, YouTube e LATAM decolou! ✨", },
+                    { publishDate: new Date("2025-10-30T00:00:00Z"), title: "AI Conversation: Ifood", link: "https://www.youtube.com/watch?v=Y2vACv7jEDM", status: "Confirmado", channels: ["YouTube"], format: "Vídeo", type: "Original", synopsis: "O iFood se torna uma empresa AI-first, usando IA para otimizar resultados, eficiência operacional, estratégia e cultura organizacional.", starter: "Descubra como o iFood se tornou AI-first, otimizando resultados e cultura! Assista à conversa com Maia Mau e Diego Barreto. #AICONVERSATION", },
+
+                    // DADOS DE NOVEMBRO DE 2025
+                    { publishDate: new Date("2025-11-07T00:00:00Z"), title: "Perfil do consumidor da Black 2025", link: "https://www.linkedin.com/feed/update/urn:li:activity:7392620567239024640/?actorCompanyId=3611194", status: "Confirmado", channels: ["LinkedIn"], format: "Infográfico", type: "Original", synopsis: "Perfil do consumidor da Black Friday 2025 no Brasil: planejado, impulsivo, altamente pesquisador e com prioridades de compra variadas por região.", starter: "O consumidor de #BlackFriday 2025 é planejado, mas também age por impulso! 🎯 84% pesquisam muito antes de comprar. Sua estratégia está pronta? #Varejo #Estrategia", },
+                    { publishDate: new Date("2025-11-10T00:00:00Z"), title: "Wellness Paradox", link: "https://docs.google.com/document/d/1tVfRYPTfl6eQsaL0iLN-j7KuM8YHTChYuFy6mXyHhZw/edit?tab=t.0", status: "Confirmado", channels: ["Site"], format: "Artigo", type: "Original", synopsis: "O bem-estar para o brasileiro é tempo de qualidade, lazer e autocuidado em casa. O YouTube é chave nessa jornada, oferecendo oportunidades autênticas para marcas.", starter: "88% dos brasileiros veem bem-estar como #tempodequalidade em casa. Sua marca está onde eles fazem essa pausa? Veja 3 insights! #marketing", },
+                    { publishDate: new Date("2025-11-11T00:00:00Z"), title: "Como a IA generativa está redefinindo criatividade, eficiência e governança nas empresas", link: "https://docs.google.com/document/d/14U_Fs5gx3G2JO87ibweawa8FORk73EVjgJdCETj64oM/edit?tab=t.0", status: "Confirmado", channels: ["Site"], format: "Artigo", type: "Original", synopsis: "Adoção estratégica e responsável da IA generativa no Brasil, focando em governança, ética e cultura organizacional para escalar a inovação com segurança.", starter: "IA e estratégia: Governança, ética e cultura são essenciais para inovar com segurança. Saiba como estruturar a adoção da GenAI na sua empresa. [LINK]", },
+                    { publishDate: new Date("2025-11-12T00:00:00Z"), title: "Insights Black Friday", link: "TBP", status: "Confirmado", channels: ["Site"], format: "Artigo", type: "Original", synopsis: "TBP.", starter: "TBP", },
+                    { publishDate: new Date("2025-11-13T00:00:00Z"), title: "AI Conversation: Projeto Debug", link: "TBP", status: "Confirmado", channels: ["YouTube"], format: "Vídeo", type: "Original", synopsis: "TBP.", starter: "TBP", },
+                    { publishDate: new Date("2025-11-14T00:00:00Z"), title: "Case Agências: Consumidor Sintético", link: "https://docs.google.com/document/d/1rUcgMcc_FOCn2nrDqGnENcBdR5GkDqGIKXaOmA9lLqk/edit?tab=t.0", status: "Confirmado", channels: ["Site"], format: "Artigo", type: "Original", synopsis: "O artigo detalha como personas sintéticas, criadas com IA (Gemini), revolucionam o pré-teste de campanhas, oferecendo insights rápidos e precisos para agências como AlmapBBDO.", starter: "Teste campanhas em tempo real com IA! Personas sintéticas estão revolucionando a eficiência criativa. Descubra como: [Link do Artigo]", },
+                    { publishDate: new Date("2025-11-14T00:00:00Z"), title: "Cash to Code", link: "TBP", status: "Confirmado", channels: ["Site"], format: "Artigo", type: "Original", synopsis: "TBP.", starter: "TBP", },
+                    { publishDate: new Date("2025-11-17T00:00:00Z"), title: "Insights Educação", link: "TBP", status: "Tentativa", channels: ["Site"], format: "Artigo", type: "Original", synopsis: "TBP.", starter: "TBP", },
+                    { publishDate: new Date("2025-11-18T00:00:00Z"), title: "YouTube: Beleza e Saúde", link: "TBP", status: "Tentativa", channels: ["Site"], format: "Artigo", type: "Original", synopsis: "TBP.", starter: "TBP", }
+                ];
+
+                allExecutiveSummaries = {
+                    // COLE OS DADOS DA SUA ABA 'ExecutiveSummary' AQUI, MANTENDO O FORMATO
+                    "2025-8": { // Chave para Setembro (mês 8)
+                        theme: "20 anos de YouTube no Brasil: formatos, hábitos e oportunidades",
+                        goal: "Demonstrar a consolidação do YouTube como plataforma essencial para marcas no Brasil, impulsionando estratégias de mídia e vendas."
+                    },
+                    "2025-9": { // Chave para Outubro (mês 9)
+                        theme: "Brandcast Brasil: Por que só o YouTube reúne fãs apaixonados e traz resultados para marcas",
+                        goal: "Demonstrar o poder do YouTube e da IA como ferramentas essenciais para as estratégias de fim de ano e planejamento de 2026."
+                    },
+                    "2025-10": { // Chave para Novembro (mês 10)
+                        theme: "Black Friday e a Revolução da IA na Criatividade",
+                        goal: "Preparar marcas para a Black Friday com insights de consumo e demonstrar como a IA está transformando processos criativos e estratégicos nas agências."
+                    }
+                };
+                
+                postDataLoad();
+            }
+
+            function startApp() {
+                loadData();
+            }
+
+            startApp();
+        });
+    </script>
+</body>
+</html>
